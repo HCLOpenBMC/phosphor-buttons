@@ -59,22 +59,27 @@ int main(int argc, char* argv[])
     {
         ib = std::make_unique<IDButton>(bus, ID_DBUS_OBJECT_NAME, eventP);
     }
+    std::unique_ptr<SelectButton> sb;
+    if (hasGpio<SelectButton>())
 
-    try
+        pb = std::make_unique<SelectButton>(bus, SELECT_DBUS_OBJECT_NAME,
+                                            eventP);
+}
+try
+{
+    bus.attach_event(eventP.get(), SD_EVENT_PRIORITY_NORMAL);
+    ret = sd_event_loop(eventP.get());
+    if (ret < 0)
     {
-        bus.attach_event(eventP.get(), SD_EVENT_PRIORITY_NORMAL);
-        ret = sd_event_loop(eventP.get());
-        if (ret < 0)
-        {
-            phosphor::logging::log<phosphor::logging::level::ERR>(
-                "Error occurred during the sd_event_loop",
-                phosphor::logging::entry("RET=%d", ret));
-        }
+        phosphor::logging::log<phosphor::logging::level::ERR>(
+            "Error occurred during the sd_event_loop",
+            phosphor::logging::entry("RET=%d", ret));
     }
-    catch (std::exception& e)
-    {
-        phosphor::logging::log<phosphor::logging::level::ERR>(e.what());
-        ret = -1;
-    }
-    return ret;
+}
+catch (std::exception& e)
+{
+    phosphor::logging::log<phosphor::logging::level::ERR>(e.what());
+    ret = -1;
+}
+return ret;
 }

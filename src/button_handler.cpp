@@ -6,6 +6,14 @@
 #include <xyz/openbmc_project/State/Chassis/server.hpp>
 #include <xyz/openbmc_project/State/Host/server.hpp>
 
+#define SWITCH_POS_PATH "/etc/swPos.data"
+#define KEY_FRONTPANEL_UART_POS "uart_sel_pos"
+#include <fstream>
+#include <iomanip>
+#include <iostream>
+#include <sstream>
+#include <string>
+
 namespace phosphor
 {
 namespace button
@@ -18,6 +26,7 @@ using sdbusplus::exception::SdBusError;
 
 constexpr auto propertyIface = "org.freedesktop.DBus.Properties";
 constexpr auto chassisIface = "xyz.openbmc_project.State.Chassis";
+constexpr auto chassisSystemIface = "xyz.openbmc_project.State.Chassis-system0";
 constexpr auto hostIface = "xyz.openbmc_project.State.Host";
 constexpr auto powerButtonIface = "xyz.openbmc_project.Chassis.Buttons.Power";
 constexpr auto idButtonIface = "xyz.openbmc_project.Chassis.Buttons.ID";
@@ -28,6 +37,9 @@ constexpr auto ledGroupIface = "xyz.openbmc_project.Led.Group";
 constexpr auto mapperObjPath = "/xyz/openbmc_project/object_mapper";
 constexpr auto mapperService = "xyz.openbmc_project.ObjectMapper";
 constexpr auto ledGroupBasePath = "/xyz/openbmc_project/led/groups/";
+
+int host;
+int poistion;
 
 Handler::Handler(sdbusplus::bus::bus& bus) : bus(bus)
 {
@@ -128,6 +140,11 @@ bool Handler::poweredOn() const
            Chassis::convertPowerStateFromString(std::get<std::string>(state));
 }
 
+#define SERVER1 1
+#define BMC 0
+
+nlohmann::json appData __attribute__((init_priority(101)));
+
 void Handler::powerPressed(sdbusplus::message::message& msg)
 {
     auto transition = Host::Transition::On;
@@ -169,13 +186,48 @@ void Handler::longPowerPressed(sdbusplus::message::message& msg)
         }
 
         log<level::INFO>("Handling long power button press");
+#if MULTI_HOST_ENABLED
+        if (poistion == BMC)
+        {
+            std::variant<std::string> state =
+                convertForMessage(Chassissystem0::Transition::On);
+            // chassis system reset or sled cycle
+            auto service =
+                getService(CHASSISSYSTEM_STATE_OBJECT_NAME, chassisSystemIface);
+            auto method = bus.new_method_call(service.c_str(),
+                                              CHASSISSYSTEM_STATE_OBJECT_NAME,
+                                              propertyIface, "Set");
+            method.append(chassisSystemIface, "RequestedPowerTransition",
+                          state);
 
-        std::variant<std::string> state =
-            convertForMessage(Chassis::Transition::Off);
+            bus.call(method);
+        }
+        else
+        {
+            std::variant<std::string> state =
+                convertForMessage(Chassis::Transition::On);
 
-        auto service = getService(CHASSIS_STATE_OBJECT_NAME, chassisIface);
+            auto service =
+                getService(CHASSIS_STATE_OBJECT_NAME + to_string(host),
+                           chassisIface + to_string(host));
+            auto method = bus.new_method_call(
+                service.c_str(), CHASSIS_STATE_OBJECT_NAME + to_string(host),
+                propertyIface, "Set");
+
+            method.append(chassisIface, "RequestedPowerTransition", state);
+
+            bus.call(method);
+        }
+        else
+#endif
+            std::variant<std::string>
+                state = convertForMessage(Chassis::Transition::On);
+
+        auto service =
+            getService(CHASSIS_STATE_OBJECT_NAME + to_string(0), chassisIface);
         auto method = bus.new_method_call(
-            service.c_str(), CHASSIS_STATE_OBJECT_NAME, propertyIface, "Set");
+            service.c_str(), CHASSIS_STATE_OBJECT_NAME + to_string(0),
+            propertyIface, "Set");
         method.append(chassisIface, "RequestedPowerTransition", state);
 
         bus.call(method);
@@ -214,6 +266,84 @@ void Handler::resetPressed(sdbusplus::message::message& msg)
     {
         log<level::ERR>("Failed power state change on a reset button press",
                         entry("ERROR=%s", e.what()));
+    }
+}
+
+int16_t getSwPpos(char* pos)
+{
+    /* Get App data stored in json file */
+    std::ifstream file(SWITCH_POS_PATH);
+    if (file)
+    {
+        file >> appData;
+        file.close();
+    }
+    else
+    {
+        std::cout << "Error in read file" << SWITCH_POS_PATH << "\n";
+        std::cout.flush();
+        return -1;
+    }
+    std::string str = appData[KEY_FRONTPANEL_UART_POS].get<std::string>();
+
+    *pos++ = 0; // byte 1: Set selector not supported
+    *pos++ = 0; // byte 2: Only ASCII supported
+
+    int len = str.length();
+    *pos++ = len;
+    memcpy(pos, str.data(), len);
+
+    std::cout << "Read Data : " << pos << "\n";
+    std::cout.flush();
+
+    return 0;
+}
+
+int16_t setSwPpos(char* pos)
+{
+    std::stringstream ss;
+
+    ss << (char)pos[0];
+
+    std::cout << "Write Data : " << ss.str() << "\n";
+    std::cout.flush();
+    appData[KEY_FRONTPANEL_UART_POS] = ss.str();
+
+    std::ofstream file(SWITCH_POS_PATH);
+    file << appData;
+    file.close();
+
+    return 0;
+}
+
+void Handler::longResetPressed(sdbusplus::message::message& msg)
+{
+    try
+    {
+        if (!poweredOn())
+        {
+            log<level::INFO>("Power is off so ignoring reset button press");
+            return;
+        }
+
+        log<level::INFO>("Handling long reset button press");
+
+        std::variant<std::string> state =
+            convertForMessage(Chassis::Transition::Reboot);
+
+        auto service = getService(CHASSIS_STATE_OBJECT_NAME, chassisIface);
+        auto method = bus.new_method_call(
+            service.c_str(), CHASSIS_STATE_OBJECT_NAME, propertyIface, "Set");
+
+        method.append(chassisIface, "RequestedHostTransition", state);
+
+        bus.call(method);
+    }
+    catch (SdBusError& e)
+    {
+        log<level::ERR>(
+            "Failed power state change on a long reset button press",
+            entry("ERROR=%s", e.what()));
     }
 }
 
@@ -259,5 +389,15 @@ void Handler::idPressed(sdbusplus::message::message& msg)
                         entry("ERROR=%s", e.what()));
     }
 }
+
+void Handler::selectorPressed(sdbusplus::message::message& msg)
+{
+    char locstr[10];
+
+    host = (host >= BMC) ? SERVER1 : (host + 1);
+    sprintf(locstr, "%u", host);
+    setSwPpos(locstr);
+}
+
 } // namespace button
 } // namespace phosphor

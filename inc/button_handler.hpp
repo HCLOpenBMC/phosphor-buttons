@@ -15,7 +15,7 @@ namespace button
  * xyz.openbmc_project.Chassis.Buttons code when
  * it detects button presses.
  *
- * There are 3 buttons supported - Power, ID, and Reset.
+ * There are 4 buttons supported - Power, ID, and Reset, Selector.
  * As not all systems may implement each button, this class will
  * check for that button on D-Bus before listening for its signals.
  */
@@ -76,6 +76,15 @@ class Handler
     void resetPressed(sdbusplus::message::message& msg);
 
     /**
+     * @brief The handler for a selector button press
+     *
+     * Updates position as host or bmc .
+     *
+     * @param[in] msg - sdbusplus message from signal
+     */
+    void selectorPressed(sdbusplus::message::message& msg);
+
+    /**
      * @brief Checks if system is powered on
      *
      * @return true if powered on, false else
@@ -118,6 +127,16 @@ class Handler
      * @brief Matches on the reset button released signal
      */
     std::unique_ptr<sdbusplus::bus::match_t> resetButtonReleased;
+
+    /**
+     * @brief Matches on the reset button long press released signal
+     */
+    std::unique_ptr<sdbusplus::bus::match_t> resetLongButtonReleased;
+
+    /**
+     * @brief Matches on the selector button released signal
+     */
+    std::unique_ptr<sdbusplus::bus::match_t> selectorButtonReleased;
 };
 
 } // namespace button
