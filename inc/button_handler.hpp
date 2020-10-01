@@ -76,6 +76,14 @@ class Handler
     void resetPressed(sdbusplus::message::message& msg);
 
     /**
+     * @brief The handler for a reset button press
+     *
+     * Reboots the host if it is powered on.
+     *
+     * @param[in] msg - sdbusplus message from signal
+     */
+    void longResetPressed(sdbusplus::message::message& msg);
+    /**
      * @brief The handler for a selector button press
      *
      * Updates position as host or bmc .

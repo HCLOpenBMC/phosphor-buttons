@@ -2,6 +2,7 @@
 
 #include "settings.hpp"
 
+#include <nlohmann/json.hpp>
 #include <phosphor-logging/log.hpp>
 #include <xyz/openbmc_project/State/Chassis/server.hpp>
 #include <xyz/openbmc_project/State/Host/server.hpp>
@@ -13,6 +14,8 @@
 #include <iostream>
 #include <sstream>
 #include <string>
+
+#define MULTI_HOST_ENABLED 0
 
 namespace phosphor
 {
@@ -31,6 +34,8 @@ constexpr auto hostIface = "xyz.openbmc_project.State.Host";
 constexpr auto powerButtonIface = "xyz.openbmc_project.Chassis.Buttons.Power";
 constexpr auto idButtonIface = "xyz.openbmc_project.Chassis.Buttons.ID";
 constexpr auto resetButtonIface = "xyz.openbmc_project.Chassis.Buttons.Reset";
+constexpr auto selectorButtonIface =
+    "xyz.openbmc_project.Chassis.Buttons.Selector";
 constexpr auto mapperIface = "xyz.openbmc_project.ObjectMapper";
 constexpr auto ledGroupIface = "xyz.openbmc_project.Led.Group";
 
@@ -109,6 +114,25 @@ Handler::Handler(sdbusplus::bus::bus& bus) : bus(bus)
     {
         // The button wasn't implemented
     }
+
+    try
+    {
+        if (!getService(SELECTOR_DBUS_OBJECT_NAME, selectorButtonIface).empty())
+        {
+            log<level::INFO>("Registering selector button handler");
+            selectorButtonReleased = std::make_unique<sdbusplus::bus::match_t>(
+                bus,
+                sdbusRule::type::signal() + sdbusRule::member("Released") +
+                    sdbusRule::path(SELECTOR_DBUS_OBJECT_NAME) +
+                    sdbusRule::interface(selectorButtonIface),
+                std::bind(std::mem_fn(&Handler::selectorPressed), this,
+                          std::placeholders::_1));
+        }
+    }
+    catch (SdBusError& e)
+    {
+        // The button wasn't implemented
+    }
 }
 
 std::string Handler::getService(const std::string& path,
@@ -142,8 +166,6 @@ bool Handler::poweredOn() const
 
 #define SERVER1 1
 #define BMC 0
-
-nlohmann::json appData __attribute__((init_priority(101)));
 
 void Handler::powerPressed(sdbusplus::message::message& msg)
 {
@@ -190,7 +212,7 @@ void Handler::longPowerPressed(sdbusplus::message::message& msg)
         if (poistion == BMC)
         {
             std::variant<std::string> state =
-                convertForMessage(Chassissystem0::Transition::On);
+                convertForMessage(chassis_system0::Transition::On);
             // chassis system reset or sled cycle
             auto service =
                 getService(CHASSISSYSTEM_STATE_OBJECT_NAME, chassisSystemIface);
@@ -208,26 +230,27 @@ void Handler::longPowerPressed(sdbusplus::message::message& msg)
                 convertForMessage(Chassis::Transition::On);
 
             auto service =
-                getService(CHASSIS_STATE_OBJECT_NAME + to_string(host),
-                           chassisIface + to_string(host));
-            auto method = bus.new_method_call(
-                service.c_str(), CHASSIS_STATE_OBJECT_NAME + to_string(host),
-                propertyIface, "Set");
+                getService(CHASSIS_STATE_OBJECT_NAME + std::to_string(host),
+                           chassisIface + std::to_string(host));
+            auto method = bus.new_method_call(service.c_str(),
+                                              CHASSIS_STATE_OBJECT_NAME +
+                                                  std::to_string(host),
+                                              propertyIface, "Set");
 
             method.append(chassisIface, "RequestedPowerTransition", state);
 
             bus.call(method);
         }
-        else
-#endif
-            std::variant<std::string>
-                state = convertForMessage(Chassis::Transition::On);
 
-        auto service =
-            getService(CHASSIS_STATE_OBJECT_NAME + to_string(0), chassisIface);
+#endif
+        std::variant<std::string> state =
+            convertForMessage(Chassis::Transition::On);
+        auto Chassisstr = CHASSIS_STATE_OBJECT_NAME; // TODO
+
+        auto service = getService(CHASSIS_STATE_OBJECT_NAME + std::to_string(0),
+                                  chassisIface + std::to_string(0));
         auto method = bus.new_method_call(
-            service.c_str(), CHASSIS_STATE_OBJECT_NAME + to_string(0),
-            propertyIface, "Set");
+            service.c_str(), CHASSIS_STATE_OBJECT_NAME, propertyIface, "Set");
         method.append(chassisIface, "RequestedPowerTransition", state);
 
         bus.call(method);
@@ -268,6 +291,8 @@ void Handler::resetPressed(sdbusplus::message::message& msg)
                         entry("ERROR=%s", e.what()));
     }
 }
+
+nlohmann::json appData __attribute__((init_priority(101)));
 
 int16_t getSwPpos(char* pos)
 {
@@ -315,6 +340,7 @@ int16_t setSwPpos(char* pos)
 
     return 0;
 }
+#if 0
 
 void Handler::longResetPressed(sdbusplus::message::message& msg)
 {
@@ -324,7 +350,7 @@ void Handler::longResetPressed(sdbusplus::message::message& msg)
         {
             log<level::INFO>("Power is off so ignoring reset button press");
             return;
-        }
+        } 
 
         log<level::INFO>("Handling long reset button press");
 
@@ -341,11 +367,11 @@ void Handler::longResetPressed(sdbusplus::message::message& msg)
     }
     catch (SdBusError& e)
     {
-        log<level::ERR>(
-            "Failed power state change on a long reset button press",
-            entry("ERROR=%s", e.what()));
+        log<level::ERR>("Failed power state change on a long reset button press",
+                        entry("ERROR=%s", e.what()));
     }
 }
+#endif
 
 void Handler::idPressed(sdbusplus::message::message& msg)
 {
@@ -392,6 +418,7 @@ void Handler::idPressed(sdbusplus::message::message& msg)
 
 void Handler::selectorPressed(sdbusplus::message::message& msg)
 {
+
     char locstr[10];
 
     host = (host >= BMC) ? SERVER1 : (host + 1);

@@ -20,8 +20,3 @@ void SelectorButton::simPress()
 {
     pressed();
 }
-
-void SelectorButton::simLongPress()
-{
-    pressedLong();
-}

@@ -17,6 +17,7 @@
 #include "id_button.hpp"
 #include "power_button.hpp"
 #include "reset_button.hpp"
+#include "selector_button.hpp"
 
 int main(int argc, char* argv[])
 {
@@ -59,27 +60,30 @@ int main(int argc, char* argv[])
     {
         ib = std::make_unique<IDButton>(bus, ID_DBUS_OBJECT_NAME, eventP);
     }
-    std::unique_ptr<SelectButton> sb;
-    if (hasGpio<SelectButton>())
 
-        pb = std::make_unique<SelectButton>(bus, SELECT_DBUS_OBJECT_NAME,
-                                            eventP);
-}
-try
-{
-    bus.attach_event(eventP.get(), SD_EVENT_PRIORITY_NORMAL);
-    ret = sd_event_loop(eventP.get());
-    if (ret < 0)
+    std::unique_ptr<SelectorButton> sb;
+    if (hasGpio<SelectorButton>())
     {
-        phosphor::logging::log<phosphor::logging::level::ERR>(
-            "Error occurred during the sd_event_loop",
-            phosphor::logging::entry("RET=%d", ret));
+
+        sb = std::make_unique<SelectorButton>(bus, SELECTOR_DBUS_OBJECT_NAME,
+                                              eventP);
     }
-}
-catch (std::exception& e)
-{
-    phosphor::logging::log<phosphor::logging::level::ERR>(e.what());
-    ret = -1;
-}
-return ret;
+
+    try
+    {
+        bus.attach_event(eventP.get(), SD_EVENT_PRIORITY_NORMAL);
+        ret = sd_event_loop(eventP.get());
+        if (ret < 0)
+        {
+            phosphor::logging::log<phosphor::logging::level::ERR>(
+                "Error occurred during the sd_event_loop",
+                phosphor::logging::entry("RET=%d", ret));
+        }
+    }
+    catch (std::exception& e)
+    {
+        phosphor::logging::log<phosphor::logging::level::ERR>(e.what());
+        ret = -1;
+    }
+    return ret;
 }

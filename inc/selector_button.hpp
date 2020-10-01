@@ -74,7 +74,6 @@ struct SelectorButton
     }
 
     void simPress() override;
-    void simLongPress() override;
 
     static const char* getGpioName()
     {
@@ -153,15 +152,8 @@ struct SelectorButton
             auto d = std::chrono::duration_cast<std::chrono::milliseconds>(
                 now - selectorButton->getPressTime());
 
-            if (d > std::chrono::milliseconds(LONG_PRESS_TIME_MS))
-            {
-                selectorButton->pressedLong();
-            }
-            else
-            {
-                // released
-                selectorButton->released();
-            }
+            // released
+            selectorButton->released();
         }
 
         return 0;
