@@ -89,6 +89,10 @@ struct ResetButton
         {
             phosphor::logging::log<phosphor::logging::level::ERR>(
                 "RESET_BUTTON: userdata null!");
+
+            std::cout << "RESET_BUTTON: userdata null! "
+                      << "\n";
+            std::cout.flush();
             throw sdbusplus::xyz::openbmc_project::Chassis::Common::Error::
                 IOError();
         }
@@ -99,6 +103,9 @@ struct ResetButton
         {
             phosphor::logging::log<phosphor::logging::level::ERR>(
                 "RESET_BUTTON: null pointer!");
+            std::cout << "RESET_BUTTON: null pointer! "
+                      << "\n";
+            std::cout.flush();
             throw sdbusplus::xyz::openbmc_project::Chassis::Common::Error::
                 IOError();
         }
@@ -109,6 +116,9 @@ struct ResetButton
         {
             phosphor::logging::log<phosphor::logging::level::ERR>(
                 "RESET_BUTTON: lseek error!");
+            std::cout << "RESET_BUTTON: lseek error! "
+                      << "\n";
+            std::cout.flush();
             throw sdbusplus::xyz::openbmc_project::Chassis::Common::Error::
                 IOError();
         }
@@ -118,6 +128,9 @@ struct ResetButton
         {
             phosphor::logging::log<phosphor::logging::level::ERR>(
                 "RESET_BUTTON: read error!");
+            std::cout << "RESET_BUTTON: read error! "
+                      << "\n";
+            std::cout.flush();
             throw sdbusplus::xyz::openbmc_project::Chassis::Common::Error::
                 IOError();
         }
@@ -126,6 +139,10 @@ struct ResetButton
         {
             phosphor::logging::log<phosphor::logging::level::DEBUG>(
                 "RESET_BUTTON: pressed");
+
+            std::cout << "RESET_BUTTON: pressed! "
+                      << "\n";
+            std::cout.flush();
             // emit pressed signal
             resetButton->pressed();
         }
@@ -133,6 +150,9 @@ struct ResetButton
         {
             phosphor::logging::log<phosphor::logging::level::DEBUG>(
                 "RESET_BUTTON: released");
+            std::cout << "RESET_BUTTON: released! "
+                      << "\n";
+            std::cout.flush();
             // released
             resetButton->released();
         }

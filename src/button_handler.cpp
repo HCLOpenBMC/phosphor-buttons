@@ -15,7 +15,7 @@
 #include <sstream>
 #include <string>
 
-#define MULTI_HOST_ENABLED 0
+#define MULTI_HOST_ENABLED 1
 
 namespace phosphor
 {
@@ -44,7 +44,7 @@ constexpr auto mapperService = "xyz.openbmc_project.ObjectMapper";
 constexpr auto ledGroupBasePath = "/xyz/openbmc_project/led/groups/";
 
 int host;
-int poistion;
+int position;
 
 Handler::Handler(sdbusplus::bus::bus& bus) : bus(bus)
 {
@@ -164,9 +164,14 @@ bool Handler::poweredOn() const
            Chassis::convertPowerStateFromString(std::get<std::string>(state));
 }
 
-#define SERVER1 1
-#define BMC 0
-
+enum
+{
+    SERVER1 = 1,
+    SERVER2,
+    SERVER3,
+    SERVER4,
+    BMC
+};
 void Handler::powerPressed(sdbusplus::message::message& msg)
 {
     auto transition = Host::Transition::On;
@@ -180,6 +185,24 @@ void Handler::powerPressed(sdbusplus::message::message& msg)
 
         log<level::INFO>("Handling power button press");
 
+#if MULTI_HOST_ENABLED
+        std::cout << "Handling multi host simple power button press"
+                  << "\n";
+        std::cout.flush();
+
+        if (position == BMC)
+        {
+            std::variant<std::string> state = convertForMessage(transition);
+
+            auto service = getService(HOST_STATE_OBJECT_NAME, hostIface);
+            auto method = bus.new_method_call(
+                service.c_str(), HOST_STATE_OBJECT_NAME, propertyIface, "Set");
+            method.append(hostIface, "RequestedHostTransition", state);
+
+            bus.call(method);
+        }
+
+#else
         std::variant<std::string> state = convertForMessage(transition);
 
         auto service = getService(HOST_STATE_OBJECT_NAME, hostIface);
@@ -188,6 +211,7 @@ void Handler::powerPressed(sdbusplus::message::message& msg)
         method.append(hostIface, "RequestedHostTransition", state);
 
         bus.call(method);
+#endif
     }
     catch (SdBusError& e)
     {
@@ -195,6 +219,8 @@ void Handler::powerPressed(sdbusplus::message::message& msg)
                         entry("ERROR=%s", e.what()));
     }
 }
+
+#include <stdlib.h>
 
 void Handler::longPowerPressed(sdbusplus::message::message& msg)
 {
@@ -208,9 +234,14 @@ void Handler::longPowerPressed(sdbusplus::message::message& msg)
         }
 
         log<level::INFO>("Handling long power button press");
+
+        std::cout << "Handling power button press"
+                  << "\n";
+        std::cout.flush();
 #if MULTI_HOST_ENABLED
-        if (poistion == BMC)
+        if (position == BMC)
         {
+#if 0       
             std::variant<std::string> state =
                 convertForMessage(chassis_system0::Transition::On);
             // chassis system reset or sled cycle
@@ -223,26 +254,33 @@ void Handler::longPowerPressed(sdbusplus::message::message& msg)
                           state);
 
             bus.call(method);
+#endif
+            std::cout << "Handling SLED cycle press"
+                      << "\n";
+            std::cout.flush();
+            system("i2cset -f -y 7 0x45 0xd9 c");
         }
         else
         {
+
+            std::cout << "Handling host 12v on/off button press:  " << host
+                      << "\n";
+            std::cout.flush();
             std::variant<std::string> state =
                 convertForMessage(Chassis::Transition::On);
 
-            auto service =
-                getService(CHASSIS_STATE_OBJECT_NAME + std::to_string(host),
-                           chassisIface + std::to_string(host));
-            auto method = bus.new_method_call(service.c_str(),
-                                              CHASSIS_STATE_OBJECT_NAME +
-                                                  std::to_string(host),
-                                              propertyIface, "Set");
+            auto service = getService(CHASSIS_STATE_OBJECT_NAME,
+                                      chassisIface + std::to_string(host));
+            auto method =
+                bus.new_method_call(service.c_str(), CHASSIS_STATE_OBJECT_NAME,
+                                    propertyIface, "Set");
 
             method.append(chassisIface, "RequestedPowerTransition", state);
 
             bus.call(method);
         }
 
-#endif
+#elif
         std::variant<std::string> state =
             convertForMessage(Chassis::Transition::On);
         auto Chassisstr = CHASSIS_STATE_OBJECT_NAME; // TODO
@@ -254,6 +292,8 @@ void Handler::longPowerPressed(sdbusplus::message::message& msg)
         method.append(chassisIface, "RequestedPowerTransition", state);
 
         bus.call(method);
+
+#endif
     }
     catch (SdBusError& e)
     {
@@ -273,6 +313,30 @@ void Handler::resetPressed(sdbusplus::message::message& msg)
         }
 
         log<level::INFO>("Handling reset button press");
+#if MULTI_HOST_ENABLED
+
+        std::cout << "Handling multi host simple reset button press"
+                  << "\n";
+        std::cout.flush();
+
+        if (position != BMC)
+        {
+
+            std::cout << "Handling multi host reset simple button press"
+                      << "\n";
+            std::cout.flush();
+            std::variant<std::string> state =
+                convertForMessage(Host::Transition::Reboot);
+
+            auto service = getService(HOST_STATE_OBJECT_NAME, hostIface);
+            auto method = bus.new_method_call(
+                service.c_str(), HOST_STATE_OBJECT_NAME, propertyIface, "Set");
+
+            method.append(hostIface, "RequestedHostTransition", state);
+
+            bus.call(method);
+        }
+#else
 
         std::variant<std::string> state =
             convertForMessage(Host::Transition::Reboot);
@@ -284,6 +348,7 @@ void Handler::resetPressed(sdbusplus::message::message& msg)
         method.append(hostIface, "RequestedHostTransition", state);
 
         bus.call(method);
+#endif
     }
     catch (SdBusError& e)
     {
@@ -330,7 +395,6 @@ int16_t setSwPpos(char* pos)
 
     ss << (char)pos[0];
 
-    std::cout << "Write Data : " << ss.str() << "\n";
     std::cout.flush();
     appData[KEY_FRONTPANEL_UART_POS] = ss.str();
 
@@ -421,8 +485,14 @@ void Handler::selectorPressed(sdbusplus::message::message& msg)
 
     char locstr[10];
 
+    std::cout << "Handling Selector button press"
+              << "\n";
+    std::cout.flush();
+
     host = (host >= BMC) ? SERVER1 : (host + 1);
+    std::cout << "position: " << host << "\n";
     sprintf(locstr, "%u", host);
+    position = host;
     setSwPpos(locstr);
 }
 

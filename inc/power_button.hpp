@@ -138,6 +138,9 @@ struct PowerButton
         {
             phosphor::logging::log<phosphor::logging::level::DEBUG>(
                 "POWER_BUTTON: pressed");
+            std::cout << "POWER_BUTTON: pressed "
+                      << "\n";
+            std::cout.flush();
 
             powerButton->updatePressedTime();
             // emit pressed signal
@@ -148,12 +151,19 @@ struct PowerButton
             phosphor::logging::log<phosphor::logging::level::DEBUG>(
                 "POWER_BUTTON: released");
 
+            std::cout << "POWER_BUTTON: released "
+                      << "\n";
+            std::cout.flush();
+
             auto now = std::chrono::steady_clock::now();
             auto d = std::chrono::duration_cast<std::chrono::milliseconds>(
                 now - powerButton->getPressTime());
 
             if (d > std::chrono::milliseconds(LONG_PRESS_TIME_MS))
             {
+                std::cout << "POWER_BUTTON: Long press "
+                          << "\n";
+                std::cout.flush();
                 powerButton->pressedLong();
             }
             else

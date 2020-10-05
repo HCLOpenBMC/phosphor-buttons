@@ -16,7 +16,12 @@
 
 #include "selector_button.hpp"
 
+#include <iostream>
+
 void SelectorButton::simPress()
 {
     pressed();
+    std::cout << "Selector button pressed "
+              << "\n";
+    std::cout.flush();
 }
