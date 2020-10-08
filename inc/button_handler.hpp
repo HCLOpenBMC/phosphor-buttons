@@ -137,11 +137,6 @@ class Handler
     std::unique_ptr<sdbusplus::bus::match_t> resetButtonReleased;
 
     /**
-     * @brief Matches on the reset button long press released signal
-     */
-    std::unique_ptr<sdbusplus::bus::match_t> resetLongButtonReleased;
-
-    /**
      * @brief Matches on the selector button released signal
      */
     std::unique_ptr<sdbusplus::bus::match_t> selectorButtonReleased;
