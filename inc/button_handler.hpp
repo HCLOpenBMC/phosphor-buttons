@@ -100,6 +100,20 @@ class Handler
     bool poweredOn() const;
 
     /**
+     * @brief Checks if chassis is powered on
+     *s
+     * @return true if powered on, false else
+     */
+    bool chassisSystemPoweredOn() const;
+
+    /**
+     * @brief Checks if host is powered on
+     *
+     * @return true if powered on, false else
+     */
+    bool chassisPoweredOn() const;
+
+    /**
      * @brief Returns the service name for an object
      *
      * @param[in] path - the object path

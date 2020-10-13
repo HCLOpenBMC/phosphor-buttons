@@ -15,18 +15,22 @@ set(GPIO_BASE_LABEL_NAME "1e780000.gpio")
 set(LONG_PRESS_TIME_MS 3000)
 set(CHASSIS_STATE_OBJECT_NAME "xyz/openbmc_project/state/chassis")
 set(HOST_STATE_OBJECT_NAME "xyz/openbmc_project/state/host")
-set(CHASSISSYSTEM_STATE_OBJECT_NAME "xyz/openbmc_project/state/chassis-system0")
+set(CHASSISSYSTEM_STATE_OBJECT_NAME "xyz/openbmc_project/state/chassis_system")
 set(ID_LED_GROUP "enclosure_identify" CACHE STRING "The identify LED group name")
 
 add_definitions(-DPOWER_DBUS_OBJECT_NAME="/${POWER_DBUS_OBJECT_NAME}0")
 add_definitions(-DRESET_DBUS_OBJECT_NAME="/${RESET_DBUS_OBJECT_NAME}0")
 add_definitions(-DID_DBUS_OBJECT_NAME="/${ID_DBUS_OBJECT_NAME}0")
-add_definitions(-DSELECTOR_DBUS_OBJECT_NAME="/${SELECTOR_DBUS_OBJECT_NAME}")
+add_definitions(-DSELECTOR_DBUS_OBJECT_NAME="/${SELECTOR_DBUS_OBJECT_NAME}0")
+add_definitions(-DCHASSISSYSTEM_STATE_OBJECT_NAME="/${CHASSISSYSTEM_STATE_OBJECT_NAME}")
 add_definitions(-DGPIO_BASE_LABEL_NAME="${GPIO_BASE_LABEL_NAME}")
 add_definitions(-DLONG_PRESS_TIME_MS=${LONG_PRESS_TIME_MS})
 add_definitions(-DHOST_STATE_OBJECT_NAME="/${HOST_STATE_OBJECT_NAME}")
 add_definitions(-DCHASSIS_STATE_OBJECT_NAME="/${CHASSIS_STATE_OBJECT_NAME}")
-add_definitions(-DCHASSISSYSTEM_STATE_OBJECT_NAME="/${CHASSISSYSTEM_STATE_OBJECT_NAME}0")
+
+IF(MULTI_HOST_FRONTPANEL)
+    add_definitions(-DMULTI_HOST_ENABLED)
+ENDIF(MULTI_HOST_FRONTPANEL)
 
 set(SRC_FILES src/power_button.cpp
     src/reset_button.cpp
@@ -44,6 +48,7 @@ set(HANDLER_SRC_FILES
 option (LOOKUP_GPIO_BASE
     "Look up the GPIO base value in /sys/class/gpio. Otherwise use a base of 0." ON
 )
+
 
 configure_file (settings.hpp.in ${CMAKE_BINARY_DIR}/inc/settings.hpp)
 include_directories(${CMAKE_BINARY_DIR}/inc)
