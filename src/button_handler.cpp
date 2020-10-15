@@ -4,6 +4,7 @@
 
 #include <nlohmann/json.hpp>
 #include <phosphor-logging/log.hpp>
+#include <sdbusplus/asio/object_server.hpp>
 #include <xyz/openbmc_project/State/Chassis/server.hpp>
 #include <xyz/openbmc_project/State/Host/server.hpp>
 
@@ -17,7 +18,7 @@
 #include <sstream>
 #include <string>
 
-//#define MULTI_HOST_ENABLED 1
+#define TOTAL_NUMBER_OF_HOST 4
 
 namespace phosphor
 {
@@ -47,6 +48,8 @@ constexpr auto ledGroupBasePath = "/xyz/openbmc_project/led/groups/";
 int host;
 int position;
 
+int16_t setSwPpos(char* pos);
+
 Handler::Handler(sdbusplus::bus::bus& bus) : bus(bus)
 {
     try
@@ -54,137 +57,7 @@ Handler::Handler(sdbusplus::bus::bus& bus) : bus(bus)
         if (!getService(POWER_DBUS_OBJECT_NAME, powerButtonIface).empty())
         {
             log<level::INFO>("Starting power button handler");
-            log<level::INFO>("Starting power button handler66666");
-#if 0
-        for(int i = 1; i < 5; i++)  
-  {   
-           host = i;
-           if (chassisSystemPoweredOn())
-            {
-            // auto transition = Host::Transition::Off;
- 
-              std::cout << "Host already ON  : " << (host - 1) << " switching to off"
-                      << "\n";
-                      std::cout.flush();
 
-            }
-            else
-            {
-                std::cout << "Host already OFF  : " << (host - 1) << " switching to on"
-                      << "\n";
-                      std::cout.flush();
-
-            }
- 
-
-
-             //transition = Chassis::Transition::On;
-             std::string state = "xyz.openbmc_project.State.Chassis.Transition.On";
-
-          
-
-            auto objPathStr = CHASSISSYSTEM_STATE_OBJECT_NAME + std::to_string(host);
-
-            auto service = getService(objPathStr.c_str(), chassisIface);
-           
-            std::cout << "service name :" << service.c_str() << "\n";
-            std::cout << "obj name :" << objPathStr.c_str() << "\n";
-            std::cout << "Interface name :" << chassisIface << "\n";
-            std::cout.flush();
-
-
-
-            auto method = bus.new_method_call(
-                service.c_str(), objPathStr.c_str(), propertyIface, "Set");
-            method.append(chassisIface, "RequestedPowerTransition", state);
-
-            bus.call(method);
-
-            std::cout << "host on/off : " << (host - 1) << "completetd"
-                      << "\n";
-             std::cout.flush();
-
- }
-
-for(int i = 1; i < 5; i++)  
-{
-            host = i;
-            //transition = Chassis::Transition::On;
-             std::variant<std::string> state = "xyz.openbmc_project.State.Chassis.Transition.On";
-
-            // std::variant<std::string> state =
-            //    convertForMessage(State.Chassis.Transition.On);
-
-            if (chassisPoweredOn())
-            {
-               //transition = Chassis::Transition::Off;
-               state = "xyz.openbmc_project.State.Chassis.Transition.Off";
-              std::cout << "Host already ON  : " << host << " switching to off"
-                      << "\n";
-                      std::cout.flush();
-
-            }
-
-            auto objPathStr = CHASSISSYSTEM_STATE_OBJECT_NAME + std::to_string(host);
-
-            auto service = getService(objPathStr.c_str(), chassisIface);
-           
-            std::cout << "service name :" << service.c_str() << "\n";
-            std::cout << "obj name :" << objPathStr.c_str() << "\n";
-            std::cout << "Interface name :" << chassisIface << "\n";
-            std::cout.flush();
-
-
-
-            auto method = bus.new_method_call(
-                service.c_str(), objPathStr.c_str(), propertyIface, "Set");
-
-            method.append(chassisIface, "RequestedPowerTransition", state);
-
-            bus.call(method);
-
-            std::cout << "host on/off : " << (host - 1) << "completetd"
-                      << "\n";
-             std::cout.flush();
-}
-       
-
-for(int i = 1; i < 5; i++)  
-{
-            host = i;
-            std::cout << "Handling multi host reset simple button press....."
-                      << "\n";
-            std::cout.flush();
-            //std::variant<std::string> state =
-            //    convertForMessage(Chassis::Transition::PowerCycle);
-
-            std::variant<std::string> state = "xyz.openbmc_project.State.Chassis.Transition.PowerCycle";
-
-            auto objPathStr = CHASSISSYSTEM_STATE_OBJECT_NAME + std::to_string(host);
-
-            //auto service = "xyz.openbmc_project.Chassis.Buttons" + std::to_string(host);
-
-            auto service = getService(objPathStr.c_str(), chassisIface);
-
-            std::cout << "service name :" << service.c_str() << "\n";
-            std::cout << "obj name :" << objPathStr.c_str() << "\n";
-            std::cout << "Interface name :" << chassisIface << "\n";
-            std::cout.flush();
-
-            auto method = bus.new_method_call(
-                service.c_str(), objPathStr.c_str(), propertyIface, "Set");
-            method.append(chassisIface, "RequestedPowerTransition", state);
-
-            bus.call(method);
-
-
-
-            std::cout << "Resetting host : " << (host - 1) << "completetd"
-                      << "\n";
-
-            std::cout.flush();
-}
-#endif
             powerButtonReleased = std::make_unique<sdbusplus::bus::match_t>(
                 bus,
                 sdbusRule::type::signal() + sdbusRule::member("Released") +
@@ -265,6 +138,54 @@ for(int i = 1; i < 5; i++)
     {
         // The button wasn't implemented
     }
+
+    // busctl set-property xyz.openbmc_project.Chassis.Buttons
+    // /xyz/openbmc_project/Chassis/Buttons/Selector0
+    // xyz.openbmc_project.Chassis.Buttons.Selector Position b 1
+
+    static std::unique_ptr<sdbusplus::bus::match::match>
+        extSelectorButtonSourceMatch = std::make_unique<
+            sdbusplus::bus::match::match>(
+            bus,
+            "type='signal',interface='org.freedesktop.DBus.Properties',"
+            "member='PropertiesChanged',arg0namespace='xyz.openbmc_project."
+            "Chassis.Buttons."
+            "Selector'",
+            [](sdbusplus::message::message& msg) {
+                std::string interfaceName;
+                boost::container::flat_map<std::string,
+                                           std::variant<bool, std::string>>
+                    propertiesChanged;
+                bool value = true;
+                std::cerr << "Test2\n";
+                try
+                {
+                    std::cerr << "Test3\n";
+                    msg.read(interfaceName, propertiesChanged);
+                    if (propertiesChanged.begin()->first == "Position")
+                    {
+                        value =
+                            std::get<bool>(propertiesChanged.begin()->second);
+                        std::cerr
+                            << " Chassis Position propertiesChanged value: "
+                            << value << "\n";
+
+                        if (value)
+                        {
+                            char locstr[10];
+
+                            position = value;
+                            sprintf(locstr, "%u", value);
+                            setSwPpos(locstr);
+                        }
+                    }
+                }
+                catch (std::exception& e)
+                {
+                    std::cerr
+                        << "Unable to read External selector switch position\n";
+                }
+            });
 }
 
 std::string Handler::getService(const std::string& path,
@@ -302,6 +223,9 @@ bool Handler::chassisPoweredOn() const
     auto objPathStr = CHASSIS_STATE_OBJECT_NAME + std::to_string(host);
 
     auto service = getService(objPathStr.c_str(), chassisIface);
+
+    //   auto service = "xyz.openbmc_project.Chassis.Buttons" +
+    //   std::to_string(host);
 
     std::cout << "service name :" << service.c_str() << "\n";
     std::cout << "obj name :" << objPathStr.c_str() << "\n";
@@ -402,20 +326,20 @@ void Handler::powerPressed(sdbusplus::message::message& msg)
                 state = "xyz.openbmc_project.State.Chassis.Transition.Off";
 
                 std::cout << "Host already ON  : " << host
-                          << " switching to OFF"
+                          << " switching to off"
                           << "\n";
                 std::cout.flush();
             }
 
             auto objPathStr =
-                CHASSIS_STATE_OBJECT_NAME + std::to_string(host);
+                CHASSISSYSTEM_STATE_OBJECT_NAME + std::to_string(host);
 
             auto service = getService(objPathStr.c_str(), chassisIface);
 
             std::cout << "service name :" << service.c_str() << "\n";
             std::cout << "obj name :" << objPathStr.c_str() << "\n";
             std::cout << "Interface name :" << chassisIface << "\n";
-           // std::cout << "state :" << state << "\n";
+            // std::cout << "state :" << state << "\n";
             std::cout.flush();
 
             auto method = bus.new_method_call(
@@ -502,10 +426,10 @@ void Handler::longPowerPressed(sdbusplus::message::message& msg)
 
             auto transition = Chassis::Transition::On;
 
-            if (chassisSystemPoweredOn())
+            if (!chassisSystemPoweredOn())
             {
                 std::cout << "Chassis already ON  : " << (host - 1)
-                          << " switching to OFF"
+                          << " switching to off"
                           << "\n";
                 std::cout.flush();
                 transition = Chassis::Transition::Off;
@@ -523,7 +447,7 @@ void Handler::longPowerPressed(sdbusplus::message::message& msg)
             std::cout << "service name :" << service.c_str() << "\n";
             std::cout << "obj name :" << objPathStr.c_str() << "\n";
             std::cout << "Interface name :" << chassisIface << "\n";
-            //std::cout << "state :" << state << "\n";
+            // std::cout << "state :" << state << "\n";
 
             std::cout.flush();
 
@@ -591,10 +515,10 @@ void Handler::resetPressed(sdbusplus::message::message& msg)
             //    convertForMessage(Chassis::Transition::PowerCycle);
 
             std::variant<std::string> state =
-                "xyz.openbmc_project.State.Chassis.Transition.PowerCycle";
+                "xyz.openbmc_project.State.Chassis.Transition.powerCycle";
 
             auto objPathStr =
-                CHASSIS_STATE_OBJECT_NAME + std::to_string(host);
+                CHASSISSYSTEM_STATE_OBJECT_NAME + std::to_string(host);
 
             // auto service = "xyz.openbmc_project.Chassis.Buttons" +
             // std::to_string(host);
@@ -734,56 +658,6 @@ void Handler::idPressed(sdbusplus::message::message& msg)
     }
 }
 
-#if 1
-//xyz.openbmc_project.Chassis.Buttons
-
-#include <sdbusplus/asio/object_server.hpp>
-std::shared_ptr<sdbusplus::asio::connection> conn;
-static void selectorPosPropertyMonitor(void)
-{
-    std::cerr << " External selector button Property Monitor \n";
-
-    static std::unique_ptr<sdbusplus::bus::match::match> nmiSourceMatch =
-        std::make_unique<sdbusplus::bus::match::match>(
-            *conn,
-            "type='signal',interface='org.freedesktop.DBus.Properties',"
-            "member='PropertiesChanged',arg0namespace='xyz.openbmc_project."
-            "Chassis."
-            "Buttons'",
-            [](sdbusplus::message::message& msg) /*{
-
-                std::string interfaceName;
-                boost::container::flat_map<std::string,
-                                           std::variant<bool, std::string>>
-                    propertiesChanged;
-                std::string state;
-                bool value = true;
-                try
-                {
-                    msg.read(interfaceName, propertiesChanged);
-                    if (propertiesChanged.begin()->first == "Position")
-                    {
-                        value =
-                            std::get<bool>(propertiesChanged.begin()->second);
-                        std::cerr
-                            << " External selector position propertiesChanged value: " << value
-                            << "\n";
-                        
-                        if (value)
-                        {
-                            //TODO : Update Position
-                        }
-                    }
-                }
-                catch (std::exception& e)
-                {
-                    std::cerr << "Unable to read external selector position\n";
-                    return;
-                }
-
-            }*/);
-}
-#endif
 void Handler::selectorPressed(sdbusplus::message::message& msg)
 {
 
@@ -793,8 +667,9 @@ void Handler::selectorPressed(sdbusplus::message::message& msg)
               << "\n";
     std::cout.flush();
 
-    host = (host >= BMC) ? SERVER1 : (host + 1);
+    host = (host >= TOTAL_NUMBER_OF_HOST + 1) ? SERVER1 : (host + 1);
     std::cout << "position: " << host << "\n";
+
     sprintf(locstr, "%u", host);
     position = host;
     setSwPpos(locstr);

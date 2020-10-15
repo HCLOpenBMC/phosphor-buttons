@@ -27,10 +27,22 @@ add_definitions(-DGPIO_BASE_LABEL_NAME="${GPIO_BASE_LABEL_NAME}")
 add_definitions(-DLONG_PRESS_TIME_MS=${LONG_PRESS_TIME_MS})
 add_definitions(-DHOST_STATE_OBJECT_NAME="/${HOST_STATE_OBJECT_NAME}")
 add_definitions(-DCHASSIS_STATE_OBJECT_NAME="/${CHASSIS_STATE_OBJECT_NAME}")
+add_definitions(-DBOOST_ERROR_CODE_HEADER_ONLY)
+add_definitions(-DBOOST_SYSTEM_NO_DEPRECATED)
+add_definitions(-DBOOST_ALL_NO_LIB)
+add_definitions(-DBOOST_NO_RTTI)
+add_definitions(-DBOOST_NO_TYPEID)
+add_definitions(-DBOOST_ASIO_DISABLE_THREADS)
 
 IF(MULTI_HOST_FRONTPANEL)
     add_definitions(-DMULTI_HOST_ENABLED)
+   
 ENDIF(MULTI_HOST_FRONTPANEL)
+
+IF(TOTAL_NUMBER_OF_HOST)
+     add_definitions(-DTOTAL_NUMBER_OF_HOST=${TOTAL_NUMBER_OF_HOST})
+ENDIF(TOTAL_HOST_NUMBER)
+
 
 set(SRC_FILES src/power_button.cpp
     src/reset_button.cpp
