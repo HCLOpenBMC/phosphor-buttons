@@ -4,21 +4,22 @@
 
 #include <nlohmann/json.hpp>
 #include <phosphor-logging/log.hpp>
-#include <sdbusplus/asio/object_server.hpp>
 #include <xyz/openbmc_project/State/Chassis/server.hpp>
 #include <xyz/openbmc_project/State/Host/server.hpp>
 
+#include <sdbusplus/asio/object_server.hpp>
+
 #define HOST_POS_PATH "/etc/swPos.data"
-#define KEY_FRONTPANEL_UART_POS "uart_sel_pos"
+#define KEY "hostPos"
 #include <stdlib.h>
 
 #include <fstream>
 #include <iomanip>
 #include <iostream>
 #include <sstream>
-#include <string>
+#include <string>	
 
-#define TOTAL_NUMBER_OF_HOST 4
+#define  TOTAL_NUMBER_OF_HOST 4
 
 namespace phosphor
 {
@@ -48,16 +49,49 @@ constexpr auto ledGroupBasePath = "/xyz/openbmc_project/led/groups/";
 int host;
 int position;
 
-int16_t setSwPpos(char* pos);
+bool setSwPpos(char* pos);
+bool getSwPpos(char* pos);
+
+enum
+{
+    SERVER1 = 1,
+    SERVER2,
+    SERVER3,
+    SERVER4,
+    BMC
+};
 
 Handler::Handler(sdbusplus::bus::bus& bus) : bus(bus)
 {
+
+    char locstr[10];
+
+    std::cout << "Host Position key test"
+              << "\n";
+ 
+    host =6;
+
+    sprintf(locstr, "%u", host);
+    position = host;
+    setSwPpos(locstr);
+   
+    getSwPpos(&locstr[0]);
+    std::cout << "Read position: " << locstr[3] << "\n";
+
+    host = (host >= (TOTAL_NUMBER_OF_HOST + 1)) ? SERVER1 : (host + 1);
+    std::cout << "Write position: " << host << "\n";
+     std::cout.flush();
+
+    sprintf(locstr, "%u", host);
+    position = host;
+    setSwPpos(locstr);
+
     try
     {
         if (!getService(POWER_DBUS_OBJECT_NAME, powerButtonIface).empty())
         {
             log<level::INFO>("Starting power button handler");
-
+           
             powerButtonReleased = std::make_unique<sdbusplus::bus::match_t>(
                 bus,
                 sdbusRule::type::signal() + sdbusRule::member("Released") +
@@ -139,13 +173,10 @@ Handler::Handler(sdbusplus::bus::bus& bus) : bus(bus)
         // The button wasn't implemented
     }
 
-    // busctl set-property xyz.openbmc_project.Chassis.Buttons
-    // /xyz/openbmc_project/Chassis/Buttons/Selector0
-    // xyz.openbmc_project.Chassis.Buttons.Selector Position b 1
-
-    static std::unique_ptr<sdbusplus::bus::match::match>
-        extSelectorButtonSourceMatch = std::make_unique<
-            sdbusplus::bus::match::match>(
+//busctl set-property xyz.openbmc_project.Chassis.Buttons /xyz/openbmc_project/Chassis/Buttons/Selector0 xyz.openbmc_project.Chassis.Buttons.Selector Position b 1
+    
+    static std::unique_ptr<sdbusplus::bus::match::match> extSelectorButtonSourceMatch =
+        std::make_unique<sdbusplus::bus::match::match>(
             bus,
             "type='signal',interface='org.freedesktop.DBus.Properties',"
             "member='PropertiesChanged',arg0namespace='xyz.openbmc_project."
@@ -153,39 +184,40 @@ Handler::Handler(sdbusplus::bus::bus& bus) : bus(bus)
             "Selector'",
             [](sdbusplus::message::message& msg) {
                 std::string interfaceName;
-                boost::container::flat_map<std::string,
-                                           std::variant<bool, std::string>>
-                    propertiesChanged;
-                bool value = true;
-                std::cerr << "Test2\n";
+                boost::container::flat_map<std::string, std::variant<uint16_t, std::string>> propertiesChanged;
+                uint16_t value = 0;
                 try
                 {
-                    std::cerr << "Test3\n";
                     msg.read(interfaceName, propertiesChanged);
                     if (propertiesChanged.begin()->first == "Position")
                     {
                         value =
-                            std::get<bool>(propertiesChanged.begin()->second);
-                        std::cerr
-                            << " Chassis Position propertiesChanged value: "
-                            << value << "\n";
+                            std::get<uint16_t>(propertiesChanged.begin()->second);
 
+                        std::cerr
+                            << " Chassis Position propertiesChanged value: " << value
+                            << "\n";
+                     
                         if (value)
                         {
                             char locstr[10];
 
                             position = value;
+                            host = value;
                             sprintf(locstr, "%u", value);
                             setSwPpos(locstr);
+                            getSwPpos(&locstr[0]);
+                            std::cerr << "Read position: " << locstr[3] << "\n";
                         }
+                     
                     }
                 }
                 catch (std::exception& e)
                 {
-                    std::cerr
-                        << "Unable to read External selector switch position\n";
+                    std::cerr << "Unable to read External selector switch position\n";
                 }
             });
+
 }
 
 std::string Handler::getService(const std::string& path,
@@ -289,14 +321,7 @@ bool Handler::chassisSystemPoweredOn() const
     }
 }
 
-enum
-{
-    SERVER1 = 1,
-    SERVER2,
-    SERVER3,
-    SERVER4,
-    BMC
-};
+
 void Handler::powerPressed(sdbusplus::message::message& msg)
 {
     auto transition = Host::Transition::On;
@@ -339,7 +364,7 @@ void Handler::powerPressed(sdbusplus::message::message& msg)
             std::cout << "service name :" << service.c_str() << "\n";
             std::cout << "obj name :" << objPathStr.c_str() << "\n";
             std::cout << "Interface name :" << chassisIface << "\n";
-            // std::cout << "state :" << state << "\n";
+           // std::cout << "state :" << state << "\n";
             std::cout.flush();
 
             auto method = bus.new_method_call(
@@ -447,7 +472,7 @@ void Handler::longPowerPressed(sdbusplus::message::message& msg)
             std::cout << "service name :" << service.c_str() << "\n";
             std::cout << "obj name :" << objPathStr.c_str() << "\n";
             std::cout << "Interface name :" << chassisIface << "\n";
-            // std::cout << "state :" << state << "\n";
+            //std::cout << "state :" << state << "\n";
 
             std::cout.flush();
 
@@ -500,11 +525,6 @@ void Handler::resetPressed(sdbusplus::message::message& msg)
 
         log<level::INFO>("Handling reset button press");
 #if MULTI_HOST_ENABLED
-
-        std::cout << "Handling multi host simple reset button press : "
-                  << position << "\n";
-        std::cout.flush();
-
         if (position != BMC)
         {
 
@@ -519,9 +539,6 @@ void Handler::resetPressed(sdbusplus::message::message& msg)
 
             auto objPathStr =
                 CHASSISSYSTEM_STATE_OBJECT_NAME + std::to_string(host);
-
-            // auto service = "xyz.openbmc_project.Chassis.Buttons" +
-            // std::to_string(host);
 
             auto service = getService(objPathStr.c_str(), chassisIface);
 
@@ -569,14 +586,15 @@ void Handler::resetPressed(sdbusplus::message::message& msg)
 
 nlohmann::json appData __attribute__((init_priority(101)));
 
-int16_t getSwPpos(char* pos)
+bool getSwPpos(char* pos)
 {
-    /* Get App data stored in json file */
+      /* Get App data stored in json file */
     std::ifstream file(HOST_POS_PATH);
     if (file)
     {
         file >> appData;
         file.close();
+        
     }
     else
     {
@@ -584,7 +602,7 @@ int16_t getSwPpos(char* pos)
         std::cout.flush();
         return -1;
     }
-    std::string str = appData[KEY_FRONTPANEL_UART_POS].get<std::string>();
+    std::string str = appData[KEY].get<std::string>();
 
     *pos++ = 0; // byte 1: Set selector not supported
     *pos++ = 0; // byte 2: Only ASCII supported
@@ -593,20 +611,20 @@ int16_t getSwPpos(char* pos)
     *pos++ = len;
     memcpy(pos, str.data(), len);
 
-    std::cout << "Read Data : " << pos << "\n";
+    std::cout << "Read Data_1 : " << pos[0] << "\n";
     std::cout.flush();
 
     return 0;
 }
 
-int16_t setSwPpos(char* pos)
+bool setSwPpos(char* pos)
 {
     std::stringstream ss;
 
     ss << (char)pos[0];
 
     std::cout.flush();
-    appData[KEY_FRONTPANEL_UART_POS] = ss.str();
+    appData[KEY] = ss.str();
 
     std::ofstream file(HOST_POS_PATH);
     file << appData;
@@ -665,10 +683,17 @@ void Handler::selectorPressed(sdbusplus::message::message& msg)
 
     std::cout << "Handling Selector button press"
               << "\n";
-    std::cout.flush();
+   
+    getSwPpos(&locstr[0]);
+    std::cout << "Read position: " << locstr[3] << "\n";
 
-    host = (host >= TOTAL_NUMBER_OF_HOST + 1) ? SERVER1 : (host + 1);
-    std::cout << "position: " << host << "\n";
+    
+    host = locstr[3];
+    position = locstr[3];
+
+    host = (host >= (TOTAL_NUMBER_OF_HOST + 1)) ? SERVER1 : (host + 1);
+    std::cout << "Write position: " << host << "\n";
+     std::cout.flush();
 
     sprintf(locstr, "%u", host);
     position = host;
