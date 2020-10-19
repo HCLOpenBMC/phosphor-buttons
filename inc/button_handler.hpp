@@ -3,6 +3,11 @@
 #include <sdbusplus/bus.hpp>
 #include <sdbusplus/bus/match.hpp>
 
+#define HOST_POS_PATH "/etc/swPos.data"
+#define KEY "hostPos"
+#define BMC TOTAL_NUMBER_OF_HOST + 1
+#define SERVER1 1
+
 namespace phosphor
 {
 namespace button
@@ -154,6 +159,10 @@ class Handler
      * @brief Matches on the selector button released signal
      */
     std::unique_ptr<sdbusplus::bus::match_t> selectorButtonReleased;
+
+    bool getSwPpos(char* pos);
+
+    bool setSwPpos(char* pos);
 };
 
 } // namespace button
