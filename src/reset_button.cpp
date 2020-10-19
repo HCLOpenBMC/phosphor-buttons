@@ -18,7 +18,12 @@
 
 #include "xyz/openbmc_project/Chassis/Buttons/Reset/server.hpp"
 
+#include <iostream>
+
 void ResetButton::simPress()
 {
     pressed();
+    std::cout << "reset button pressed "
+              << "\n";
+    std::cout.flush();
 }

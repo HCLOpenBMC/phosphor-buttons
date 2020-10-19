@@ -16,12 +16,20 @@
 
 #include "power_button.hpp"
 
+#include <iostream>
+
 void PowerButton::simPress()
 {
     pressed();
+    std::cout << "power button pressed "
+              << "\n";
+    std::cout.flush();
 }
 
 void PowerButton::simLongPress()
 {
     pressedLong();
+    std::cout << "power button Long pressed "
+              << "\n";
+    std::cout.flush();
 }

@@ -14,18 +14,14 @@
 // limitations under the License.
 */
 
-#pragma once
-
-#include <systemd/sd-event.h>
+#include "selector_button.hpp"
 
 #include <iostream>
-#include <memory>
 
-struct EventDeleter
+void SelectorButton::simPress()
 {
-    void operator()(sd_event* event) const
-    {
-        event = sd_event_unref(event);
-    }
-};
-using EventPtr = std::unique_ptr<sd_event, EventDeleter>;
+    pressed();
+    std::cout << "Selector button pressed "
+              << "\n";
+    std::cout.flush();
+}
