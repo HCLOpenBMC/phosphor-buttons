@@ -269,6 +269,7 @@ bool Handler::chassisSystemPoweredOn() const
     }
 }
 
+
 void Handler::powerPressed(sdbusplus::message::message& msg)
 {
     try
@@ -302,7 +303,7 @@ void Handler::powerPressed(sdbusplus::message::message& msg)
             }
 
             auto objPathStr =
-                CHASSISSYSTEM_STATE_OBJECT_NAME + std::to_string(position);
+                CHASSIS_STATE_OBJECT_NAME + std::to_string(position);
 
             auto service = getService(objPathStr.c_str(), chassisIface);
             auto method = bus.new_method_call(
@@ -364,7 +365,7 @@ void Handler::longPowerPressed(sdbusplus::message::message& msg)
 
             auto transition = Chassis::Transition::On;
 
-            if (!chassisSystemPoweredOn())
+            if (chassisSystemPoweredOn())
             {
                 std::cout << "Chassis already ON  : " << position
                           << " switching to off"
@@ -467,10 +468,10 @@ void Handler::resetPressed(sdbusplus::message::message& msg)
             //    convertForMessage(Chassis::Transition::PowerCycle);
 
             std::variant<std::string> state =
-                "xyz.openbmc_project.State.Chassis.Transition.powerCycle";
+                "xyz.openbmc_project.State.Chassis.Transition.PowerCycle";
 
             auto objPathStr =
-                CHASSISSYSTEM_STATE_OBJECT_NAME + std::to_string(position);
+                CHASSIS_STATE_OBJECT_NAME + std::to_string(position);
 
             auto service = getService(objPathStr.c_str(), chassisIface);
 
