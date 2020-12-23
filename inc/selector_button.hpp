@@ -111,10 +111,6 @@ struct SelectorButton
         {
             phosphor::logging::log<phosphor::logging::level::ERR>(
                 "SELECTOR_BUTTON: null pointer!");
-
-            std::cout << "RESET_BUTTON: null pointer! "
-                      << "\n";
-            std::cout.flush();
             throw sdbusplus::xyz::openbmc_project::Chassis::Common::Error::
                 IOError();
         }
@@ -125,11 +121,6 @@ struct SelectorButton
         {
             phosphor::logging::log<phosphor::logging::level::ERR>(
                 "SELECTOR_BUTTON: lseek error!");
-
-            std::cout << "RESET_BUTTON: lseek error! "
-                      << "\n";
-            std::cout.flush();
-
             throw sdbusplus::xyz::openbmc_project::Chassis::Common::Error::
                 IOError();
         }
@@ -139,10 +130,6 @@ struct SelectorButton
         {
             phosphor::logging::log<phosphor::logging::level::ERR>(
                 "SELECTOR_BUTTON: read error!");
-            std::cout << "SELECTOR_BUTTON: read error! "
-                      << "\n";
-            std::cout.flush();
-
             throw sdbusplus::xyz::openbmc_project::Chassis::Common::Error::
                 IOError();
         }
@@ -151,11 +138,6 @@ struct SelectorButton
         {
             phosphor::logging::log<phosphor::logging::level::DEBUG>(
                 "SELECTOR_BUTTON: pressed");
-
-            std::cout << "SELECTOR_BUTTON: pressed! "
-                      << "\n";
-            std::cout.flush();
-
             selectorButton->updatePressedTime();
             // emit pressed signal
             selectorButton->pressed();
@@ -164,11 +146,6 @@ struct SelectorButton
         {
             phosphor::logging::log<phosphor::logging::level::DEBUG>(
                 "SELECTOR_BUTTON: released");
-
-            std::cout << "SELECTOR_BUTTON: released! "
-                      << "\n";
-            std::cout.flush();
-
             auto now = std::chrono::steady_clock::now();
             auto d = std::chrono::duration_cast<std::chrono::milliseconds>(
                 now - selectorButton->getPressTime());

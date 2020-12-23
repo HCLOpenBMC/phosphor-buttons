@@ -160,9 +160,20 @@ class Handler
      */
     std::unique_ptr<sdbusplus::bus::match_t> selectorButtonReleased;
 
+    /**
+     * @brief Get selector switch position
+     */
     bool getSwPpos(char* pos);
 
+    /**
+     * @brief Store selector switch position
+     */
     bool setSwPpos(char* pos);
+
+    /**
+     * @brief Handle platform specific feature
+     */
+    void startExtPlatService(void);
 };
 
 } // namespace button

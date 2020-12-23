@@ -18,7 +18,6 @@
 
 #include <systemd/sd-event.h>
 
-#include <iostream>
 #include <memory>
 
 struct EventDeleter
